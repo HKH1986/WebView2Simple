@@ -19,6 +19,13 @@ namespace CheckBrowserWindowsApp.Web
         /// <param name="webview"></param>
         /// <param name="Path"></param>
         /// <returns></returns>
+        /// <summary>
+        /// bundle css and js
+        /// go to microsoft document https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/working-with-local-content?tabs=dotnetcsharp
+        /// </summary>
+        /// <param name="webview"></param>
+        /// <param name="Path"></param>
+        /// <returns></returns>
         public static string ApplicationBundle(this Microsoft.Web.WebView2.WinForms.WebView2 webview, string Path = null)
         {
             string result = "";
@@ -28,7 +35,7 @@ namespace CheckBrowserWindowsApp.Web
             if (string.IsNullOrWhiteSpace(Path))
             {
                 //webview.CoreWebView2.SetVirtualHostNameToFolderMapping("demo", Application.StartupPath, CoreWebView2HostResourceAccessKind.DenyCors);
-                webview.CoreWebView2.SetVirtualHostNameToFolderMapping(ApplicationName, Application.StartupPath, CoreWebView2HostResourceAccessKind.DenyCors);
+                webview.CoreWebView2.SetVirtualHostNameToFolderMapping(ApplicationName, Application.StartupPath, CoreWebView2HostResourceAccessKind.Allow);
                 Path = StartupPath + "\\Library";
             }
 
@@ -54,11 +61,18 @@ namespace CheckBrowserWindowsApp.Web
 
             return result;
         }
-        public static string ScriptServerEventBundle(this Microsoft.Web.WebView2.WinForms.WebView2 webview)
+
+        /// <summary>
+        /// Injected Server side javascripts
+        /// </summary>
+        /// <param name="webview"></param>
+        /// <returns></returns>
+        public static string ScriptServerEventBundle(this Microsoft.Web.WebView2.WinForms.WebView2 WebView)
         {
             return $@"
 
                     <script>
+
 
                         function newGuid()
                         {{
@@ -100,6 +114,8 @@ namespace CheckBrowserWindowsApp.Web
                                 model.options = arropt;  
                                 model.selectedIndex = element.selectedIndex;
                                 //model.selectedOptions = element.selectedOptions;
+                                //model.selectedIndex = element.selectedIndex;
+                                //model.selectedIndex = element.selectedIndex;
 
                             }}
 
@@ -211,52 +227,221 @@ namespace CheckBrowserWindowsApp.Web
                             return arr[0];
                         }}
 
-
-
-                        const elementsWithDataAttribute = Array.from(document.querySelectorAll('*')).filter(f=> Array.from(f.attributes).filter(x=> x.name.indexOf('server-event-') >= 0).length > 0);
-                        for(var i = 0 ; i < elementsWithDataAttribute.length;i++)
+                        function ___callServerEvents(eventRealName ,sender ,e ,eventName ,serverUniqueID ,serverEventName)
                         {{
-                            let item = elementsWithDataAttribute[i];
-                            let serverUniqueID = ___setServerUniqueID(item);
-                            let attrs = Array.from(item.attributes).filter(x=> x.name.indexOf('server-event-') >= 0);
-                            for(var j = 0 ; j < attrs.length; j++)
-                            {{
-
-                                let eventItem = attrs[j];
-                                let eventname = eventItem.name.replace('server-event-' ,'');
-                                let bindeventname = eventname;
-                                if (bindeventname.startsWith(""on"")){{
-                                    bindeventname = bindeventname.substr(2);
-                                }}
-
-                                item.addEventListener(bindeventname ,function(e){{ 
-                                                                                let __target = e.target;
-                                                                                let eArg = {{
-                                                                                                eventRealName: e.toString(),
-                                                                                                eventName:eventname,
-                                                                                                serverEventName :eventItem.value,
-                                                                                                elementID : __target.id,
-                                                                                                elementName : __target.name,
-                                                                                                serverUniqueID : serverUniqueID,
-                                                                                                targetOuterHTML : __target.outerHTML,
-                                                                                            }};
-
-                                                                                for(var prop in e) 
-                                                                                    if(typeof(e[prop]) !== ""object"" && typeof(e[prop]) !== ""function"") 
-                                                                                        eArg[prop] = e[prop];
-
-                                                                                window.chrome.webview.postMessage(JSON.stringify(eArg));
-                                                                            }});
-                            }}
-
+                            let eArg = {{
+                                        eventRealName: eventRealName,
+                                        eventName: eventName,
+                                        elementID : sender.id,
+                                        elementName : sender.name,
+                                        serverUniqueID : serverUniqueID,
+                                        serverEventName :serverEventName,
+                                        targetOuterHTML : sender.outerHTML,
+                                       }};
+                             
+                            for(var prop in e) 
+                                if(typeof(e[prop]) !== ""object"" && typeof(e[prop]) !== ""function"") 
+                                    eArg[prop] = e[prop];
+                             
+                            window.chrome.webview.postMessage(JSON.stringify(eArg));
+                            return true;
+                        }}
+                        function ___bindServerEvents(control)
+                        {{
+                             var elementsWithDataAttribute = [];
+                             if (control == null)    
+                             {{
+                                elementsWithDataAttribute = Array.from(document.querySelectorAll('*')).filter(f=> Array.from(f.attributes).filter(x=> x.name.indexOf('server-event-') >= 0).length > 0);
+                             }}
+                             else 
+                             {{
+                                elementsWithDataAttribute =  Array.from($(control)).filter(f=> Array.from(f.attributes).filter(x=> x.name.indexOf('server-event-') >= 0).length > 0);
+                             }}
+                        
+                             var arr =[];
+                             for(var i = 0 ; i < elementsWithDataAttribute.length;i++)
+                             {{
+                                 let item = elementsWithDataAttribute[i];
+                                 let serverUniqueID = ___setServerUniqueID(item);
+                                 let attrs = Array.from(item.attributes).filter(x=> x.name.indexOf('server-event-') >= 0);
+                                 for(var j = 0 ; j < attrs.length; j++)
+                                 {{
+                             
+                                     let eventItem = attrs[j];
+                                     let _eventname = eventItem.name.replace('server-event-' ,'');
+                                     let bindeventname = _eventname;
+                                     if (bindeventname.startsWith(""on"")){{
+                                         bindeventname = bindeventname.substr(2);
+                                     }}
+                             
+                                     item.addEventListener(bindeventname ,function(e){{ 
+                                                                                         return ___callServerEvents(e.toString() ,e.target ,e ,_eventname ,serverUniqueID ,eventItem.value);
+                                                                                     }});
+                                    
+                                 }}
+                                 arr.push(JSON.stringify(___getProperties(item)));
+                             }}
+                            
+                            return arr;
                         }}
 
-
+                        ___bindServerEvents(null);
 
                     </script>
 
                     ";
         }
+
+        /// <summary>
+        /// Get the file http URL From path
+        /// </summary>
+        /// <param name="webview"></param>
+        /// <param name="Path"></param>
+        /// <returns></returns>
+        public static string GetUriPath(this Microsoft.Web.WebView2.WinForms.WebView2 webview, string Path)
+        {
+            string StartupPath = Application.StartupPath;
+            string ApplicationName = System.IO.Path.GetFileNameWithoutExtension(Application.ExecutablePath);
+
+            string sUriPath = Path;
+
+
+            if (sUriPath.StartsWith("~/"))
+            {
+                sUriPath = sUriPath.Replace("~/", "").Replace(" ", "%20");
+            }
+            else if (sUriPath.IndexOf(StartupPath) > 0)
+            {
+                sUriPath = sUriPath.Replace(StartupPath, "").Replace(" ", "%20");
+            }
+            else
+            {
+
+            }
+
+            return $"https://{ApplicationName}/" + sUriPath.Replace(StartupPath, "").Replace("\\", "/");
+        }
+
+
+
+        /// <summary>
+        /// set html of the content into the (BODY)
+        /// </summary>
+        /// <param name="WebView"> curret web view </param>
+        /// <param name="styleContent"> style content in (Style) </param>
+        /// <param name="bodyContent"> string content in (Body) </param>
+        /// <returns></returns>
+        public async static Task SetDocumentText(this Microsoft.Web.WebView2.WinForms.WebView2 WebView, string styleContent, string bodyContent)
+        {
+
+            try
+            {
+                //var options = new CoreWebView2EnvironmentOptions("--allow-file-access-from-files");
+                //var environment = await CoreWebView2Environment.CreateAsync(null, null, options);
+                //await WebView.EnsureCoreWebView2Async(environment);
+                await WebView.EnsureCoreWebView2Async(null);
+
+            }
+            catch
+            {
+                WebView = new Microsoft.Web.WebView2.WinForms.WebView2();
+            }
+
+            string strstyle = "";
+            if (string.IsNullOrWhiteSpace(styleContent) == false)
+            {
+                strstyle = (styleContent.IndexOf($"<style") >= 0 ? styleContent : $@" <style> {styleContent} </style> ");
+            }
+
+            WebView.NavigateToString($@"
+
+                                        <html>   
+                                        <head>
+                                            {ApplicationBundle(WebView)}
+                                            {strstyle}
+                                        </head>
+                                        <body>
+                                            {bodyContent}
+                                            {ScriptServerEventBundle(WebView)}
+                                        </body>
+                                        </html>
+
+                                       ");
+        }
+
+        /// <summary>
+        /// find html control in document USE JQUERY
+        /// </summary>
+        /// <param name="WebView"> curent webview </param>
+        /// <param name="selector"> query selector of element </param>
+        /// <returns></returns>
+        public async static Task<htmlControl[]> findControl(this Microsoft.Web.WebView2.WinForms.WebView2 WebView, string selector)
+        {
+            string strQuery = $@" ___$find(null,`{selector}`) ; ";
+            var attr = await WebView.CoreWebView2.ExecuteScriptAsync(strQuery);
+            if (attr == null || attr == "null")
+                return null;
+
+            var arr = (from f in Newtonsoft.Json.JsonConvert.DeserializeObject<string[]>(attr)
+                       select htmlControl.Parse(WebView, f)).ToArray();
+            return arr;
+        }
+        /// <summary>
+        /// Execute an javascript function from serverside
+        /// </summary>
+        /// <param name="WebView"> current web view </param>
+        /// <param name="javascript"> javascript as string </param>
+        /// <returns></returns>
+        public async static Task<string> ExecuteScriptAsync(this Microsoft.Web.WebView2.WinForms.WebView2 WebView, string javascript)
+        {
+            return await WebView.CoreWebView2.ExecuteScriptAsync(javascript);
+        }
+
+        /// <summary>
+        /// dynamically bind server events after html of element is changed
+        /// </summary>
+        /// <param name="WebView"> current webview </param>
+        /// <param name="selector"> jquery selector of element  </param>
+        /// <returns></returns>
+        public async static Task<htmlControl[]> BindServerEvents(this Microsoft.Web.WebView2.WinForms.WebView2 WebView, string selector)
+        {
+            string strQuery = $@" ___bindServerEvents($(`{selector}`)) ; ";
+            var attr = await WebView.CoreWebView2.ExecuteScriptAsync(strQuery);
+            if (attr == null || attr == "null")
+                return null;
+
+            var arr = (from f in Newtonsoft.Json.JsonConvert.DeserializeObject<string[]>(attr)
+                       select htmlControl.Parse(WebView, f)).ToArray();
+            return arr;
+        }
+
+        /// <summary>
+        /// dynamically bind server events after html of element is changed (all child of htmlControl)
+        /// </summary>
+        /// <param name="WebView"> current webview </param>
+        /// <param name="Element"> current html as selector </param>
+        /// <returns></returns>
+        public async static Task<htmlControl[]> BindServerEvents(this Microsoft.Web.WebView2.WinForms.WebView2 WebView, htmlControl Element)
+        {
+            try
+            {
+                string strQuery = $@" ___bindServerEvents($(`[server-unique-id='{Element.serverUniqueID}'] *`)) ; ";
+                var attr = await WebView.CoreWebView2.ExecuteScriptAsync(strQuery);
+                if (attr == null || attr == "null")
+                    return null;
+
+                var arr = (from f in Newtonsoft.Json.JsonConvert.DeserializeObject<string[]>(attr)
+                           select htmlControl.Parse(WebView, f)).ToArray();
+                return arr;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+
+
 
         public static object GetEventArgument(this Microsoft.Web.WebView2.Core.CoreWebView2WebMessageReceivedEventArgs earg)
         {
@@ -303,50 +488,7 @@ namespace CheckBrowserWindowsApp.Web
         }
 
 
-        public async static Task SetDocumentText(this Microsoft.Web.WebView2.WinForms.WebView2 WebView, string styleContent, string bodyContent)
-        {
 
-            try
-            {
-                await WebView.EnsureCoreWebView2Async(null);
-            }
-            catch
-            {
-                WebView = new Microsoft.Web.WebView2.WinForms.WebView2();
-            }
-
-            string strstyle = "";
-            if (string.IsNullOrWhiteSpace(styleContent) == false)
-            {
-                strstyle = (styleContent.IndexOf($"<style") >= 0 ? styleContent : $@" <style> {styleContent} </style> ");
-            }
-
-            WebView.NavigateToString($@"
-
-                                                     <html>   
-                                                        <head>
-                                                            {ApplicationBundle(WebView)}
-                                                            {strstyle}
-                                                        </head>
-                                                        <body>
-                                                            {bodyContent}
-                                                            {ScriptServerEventBundle(WebView)}
-                                                        </body>
-                                                     </html>
-
-                                                ");
-        }
-        public async static Task<htmlControl[]> findControl(this Microsoft.Web.WebView2.WinForms.WebView2 WebView, string selector)
-        {
-            string strQuery = $@" ___$find(null,`{selector}`) ; ";
-            var attr = await WebView.CoreWebView2.ExecuteScriptAsync(strQuery);
-            if (attr == null || attr == "null")
-                return null;
-
-            var arr = (from f in Newtonsoft.Json.JsonConvert.DeserializeObject<string[]>(attr)
-                       select htmlControl.Parse(WebView, f)).ToArray();
-            return arr;
-        }
 
 
     }

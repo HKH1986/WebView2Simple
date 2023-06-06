@@ -108,6 +108,8 @@ namespace CheckBrowserWindowsApp.Web
         {
             string strQuery = $@" ___$html(`[server-unique-id='{this.serverUniqueID}']`,`{content}`) ";
             var attr = await this._ParentControl.CoreWebView2.ExecuteScriptAsync(strQuery);
+            await this._ParentControl.BindServerEvents(this);
+
             if (attr == null || attr == "null")
                 return new htmlControl();
 
@@ -154,10 +156,16 @@ namespace CheckBrowserWindowsApp.Web
         /// <param name="name"> name of attribute </param>
         /// <param name="value"> value of attribute </param>
         /// <returns></returns>
-        public async Task<htmlControl> attr(string name ,string value)
+        public async Task<htmlControl> attr(string name, string value)
         {
             string strQuery = $@" ___$attr(`[server-unique-id='{this.serverUniqueID}']` ,`{name}` ,`{value}`) ";
             var attr = await this._ParentControl.CoreWebView2.ExecuteScriptAsync(strQuery);
+
+            if (name.ToLower() == "innerhtml")
+            {
+                await this._ParentControl.BindServerEvents(this);
+            }
+
             if (attr == null || attr == "null")
                 return new htmlControl();
 
