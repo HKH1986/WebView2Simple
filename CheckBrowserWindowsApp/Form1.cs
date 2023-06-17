@@ -63,7 +63,7 @@ namespace CheckBrowserWindowsApp
                                                                 </tr>
                                                             </table>
 
-                                                            <button server-event-onmouseup=""mybuttonMouseUp"" id=""btn_1"" name=""btn_myeventname"" server-unique-id=""staticbtnsss"" > this is test 2 </button>
+                                                            <button server-event-onmouseup=""mybuttonMouseUp"" id=""btn_1"" name=""btn_myeventname"" server-unique-id=""staticbtnsss"" > Right Click Here </button>
                                                             <input type=""text"" server-event-onkeydown=""mydataset"" onkeypress=""debugger; var e = event; ""   onkeyup=""debugger; var e = event; "" style=""background-color:lightblue;"" />
 
                                                             <select server-event-onchange=""mydropdown__change"">
@@ -110,17 +110,17 @@ namespace CheckBrowserWindowsApp
         {
             try
             {
-                var inputControls = await this.webViewMain.findControl("input");
+                var inputControls = await this.webViewMain.find("input");
                 await inputControls[0].val("123");
                 await inputControls[0].css("color", "navy");
 
 
-                var buttonControls = await this.webViewMain.findControl("button");
+                var buttonControls = await this.webViewMain.find("button");
                 var result = await buttonControls[0].html(" Hossein Khoddami ");
                 var parentdiv = await buttonControls[0].closest("div");
                 parentdiv = await parentdiv.attr("data-test-value", "0082713189");
 
-                var divCollection = await this.webViewMain.findControl("div");
+                var divCollection = await this.webViewMain.find("div");
                 var newdiv = await divCollection[divCollection.Count() - 1].html($@" <div style=""background-color:blue; width:200px; height:200px;""> injected  HTML </div> ");
 
 

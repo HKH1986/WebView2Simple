@@ -12,30 +12,26 @@ namespace CheckBrowserWindowsApp.Web
     public static class WebView2Extention
     {
 
+
         /// <summary>
         /// bundle css and js
         /// go to microsoft document https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/working-with-local-content?tabs=dotnetcsharp
         /// </summary>
-        /// <param name="webview"></param>
+        /// <param name="WebView"></param>
         /// <param name="Path"></param>
         /// <returns></returns>
-        /// <summary>
-        /// bundle css and js
-        /// go to microsoft document https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/working-with-local-content?tabs=dotnetcsharp
-        /// </summary>
-        /// <param name="webview"></param>
-        /// <param name="Path"></param>
-        /// <returns></returns>
-        public static string ApplicationBundle(this Microsoft.Web.WebView2.WinForms.WebView2 webview, string Path = null)
+        public async static Task<string> ApplicationBundle(this Microsoft.Web.WebView2.WinForms.WebView2 WebView, string Path = null)
         {
             string result = "";
+
+            await WebView.EnsureCoreWebView2Async(null);
 
             string StartupPath = Application.StartupPath;
             string ApplicationName = System.IO.Path.GetFileNameWithoutExtension(Application.ExecutablePath);
             if (string.IsNullOrWhiteSpace(Path))
             {
                 //webview.CoreWebView2.SetVirtualHostNameToFolderMapping("demo", Application.StartupPath, CoreWebView2HostResourceAccessKind.DenyCors);
-                webview.CoreWebView2.SetVirtualHostNameToFolderMapping(ApplicationName, Application.StartupPath, CoreWebView2HostResourceAccessKind.Allow);
+                WebView.CoreWebView2.SetVirtualHostNameToFolderMapping(ApplicationName, Application.StartupPath, CoreWebView2HostResourceAccessKind.Allow);
                 Path = StartupPath + "\\Library";
             }
 
@@ -44,7 +40,8 @@ namespace CheckBrowserWindowsApp.Web
             {
                 foreach (var folder in directoryCollection)
                 {
-                    result += ApplicationBundle(webview, folder);
+
+                    result += await ApplicationBundle(WebView, folder);
                 }
             }
 
@@ -67,7 +64,7 @@ namespace CheckBrowserWindowsApp.Web
         /// </summary>
         /// <param name="webview"></param>
         /// <returns></returns>
-        public static string ScriptServerEventBundle(this Microsoft.Web.WebView2.WinForms.WebView2 WebView)
+        public async static Task<string> ScriptServerEventBundle(this Microsoft.Web.WebView2.WinForms.WebView2 WebView)
         {
             return $@"
 
@@ -227,14 +224,14 @@ namespace CheckBrowserWindowsApp.Web
                             return arr[0];
                         }}
 
-                        function ___callServerEvents(eventRealName ,sender ,e ,eventName ,serverUniqueID ,serverEventName)
+                        function ___callServerEvents(sender ,e ,serverEventName ,eventName ,jsEventRealName ,serverUniqueID )
                         {{
                             let eArg = {{
-                                        eventRealName: eventRealName,
-                                        eventName: eventName,
+                                        eventRealName: (jsEventRealName == null || jsEventRealName == `` || jsEventRealName == undefined ? e.toString() : jsEventRealName) , //-- mouseEvent, keyboardEvent ,tabPageEvent ,....
+                                        eventName: eventName,           //-- onclick ,onmouseup ,onchane ,......
                                         elementID : sender.id,
                                         elementName : sender.name,
-                                        serverUniqueID : serverUniqueID,
+                                        serverUniqueID : (serverUniqueID == null || serverUniqueID == `` || serverUniqueID == undefined ?  ___setServerUniqueID(sender) : serverUniqueID) , //-- get unique id of element
                                         serverEventName :serverEventName,
                                         targetOuterHTML : sender.outerHTML,
                                        }};
@@ -270,12 +267,13 @@ namespace CheckBrowserWindowsApp.Web
                                      let eventItem = attrs[j];
                                      let _eventname = eventItem.name.replace('server-event-' ,'');
                                      let bindeventname = _eventname;
+                                     let serverEventName = eventItem.value;
                                      if (bindeventname.startsWith(""on"")){{
                                          bindeventname = bindeventname.substr(2);
                                      }}
                              
                                      item.addEventListener(bindeventname ,function(e){{ 
-                                                                                         return ___callServerEvents(e.toString() ,e.target ,e ,_eventname ,serverUniqueID ,eventItem.value);
+                                                                                         return ___callServerEvents(e.target ,e  ,serverEventName ,_eventname ,e.toString() ,serverUniqueID);
                                                                                      }});
                                     
                                  }}
@@ -292,13 +290,14 @@ namespace CheckBrowserWindowsApp.Web
                     ";
         }
 
+
         /// <summary>
         /// Get the file http URL From path
         /// </summary>
-        /// <param name="webview"></param>
+        /// <param name="WebView"></param>
         /// <param name="Path"></param>
         /// <returns></returns>
-        public static string GetUriPath(this Microsoft.Web.WebView2.WinForms.WebView2 webview, string Path)
+        public static string GetUriPath(this Microsoft.Web.WebView2.WinForms.WebView2 WebView, string Path)
         {
             string StartupPath = Application.StartupPath;
             string ApplicationName = System.IO.Path.GetFileNameWithoutExtension(Application.ExecutablePath);
@@ -353,16 +352,21 @@ namespace CheckBrowserWindowsApp.Web
                 strstyle = (styleContent.IndexOf($"<style") >= 0 ? styleContent : $@" <style> {styleContent} </style> ");
             }
 
+
+            string strApplicationBundle = await ApplicationBundle(WebView);
+            string strScriptServerEventBundle = await ScriptServerEventBundle(WebView);
+
+
             WebView.NavigateToString($@"
 
                                         <html>   
                                         <head>
-                                            {ApplicationBundle(WebView)}
+                                            {strApplicationBundle}
                                             {strstyle}
                                         </head>
                                         <body>
                                             {bodyContent}
-                                            {ScriptServerEventBundle(WebView)}
+                                            {strScriptServerEventBundle}
                                         </body>
                                         </html>
 
@@ -375,7 +379,7 @@ namespace CheckBrowserWindowsApp.Web
         /// <param name="WebView"> curent webview </param>
         /// <param name="selector"> query selector of element </param>
         /// <returns></returns>
-        public async static Task<htmlControl[]> findControl(this Microsoft.Web.WebView2.WinForms.WebView2 WebView, string selector)
+        public async static Task<htmlControl[]> find(this Microsoft.Web.WebView2.WinForms.WebView2 WebView, string selector)
         {
             string strQuery = $@" ___$find(null,`{selector}`) ; ";
             var attr = await WebView.CoreWebView2.ExecuteScriptAsync(strQuery);
@@ -392,9 +396,12 @@ namespace CheckBrowserWindowsApp.Web
         /// <param name="WebView"> current web view </param>
         /// <param name="javascript"> javascript as string </param>
         /// <returns></returns>
-        public async static Task<string> ExecuteScriptAsync(this Microsoft.Web.WebView2.WinForms.WebView2 WebView, string javascript)
+        public async static Task<string> RunScriptAsync(this Microsoft.Web.WebView2.WinForms.WebView2 WebView, string javascript)
         {
-            return await WebView.CoreWebView2.ExecuteScriptAsync(javascript);
+            var result = await WebView.CoreWebView2.ExecuteScriptAsync(javascript);
+            if (result == null || result == "null")
+                return null;
+            return result;
         }
 
         /// <summary>
@@ -443,6 +450,11 @@ namespace CheckBrowserWindowsApp.Web
 
 
 
+        /// <summary>
+        /// Get user event arguments
+        /// </summary>
+        /// <param name="earg"> injected current event </param>
+        /// <returns></returns>
         public static object GetEventArgument(this Microsoft.Web.WebView2.Core.CoreWebView2WebMessageReceivedEventArgs earg)
         {
             string strWebMessage = earg.TryGetWebMessageAsString();
@@ -454,9 +466,18 @@ namespace CheckBrowserWindowsApp.Web
             {
                 return Newtonsoft.Json.JsonConvert.DeserializeObject<MouseEvent>(strWebMessage);
             }
+           
 
             return Newtonsoft.Json.JsonConvert.DeserializeObject<UIEvent>(strWebMessage);
         }
+
+        /// <summary>
+        /// Invoke server-event  of current form 
+        /// </summary>
+        /// <param name="earg"> injected current event </param>
+        /// <param name="WebView"> current web view </param>
+        /// <param name="Form"> current form contians webview </param>
+        /// <returns></returns>
         public static async Task<object> InvokeServerEventAsync(this Microsoft.Web.WebView2.Core.CoreWebView2WebMessageReceivedEventArgs earg, Microsoft.Web.WebView2.WinForms.WebView2 WebView, System.Windows.Forms.Form Form)
         {
             try
@@ -471,6 +492,7 @@ namespace CheckBrowserWindowsApp.Web
                     return null;
 
                 var element = htmlControl.Parse(WebView, attr);
+
 
                 MethodInfo[] methods = Form.GetType().GetMethods(BindingFlags.NonPublic | BindingFlags.Instance);
                 MethodInfo method = methods.ToList().SingleOrDefault(f => f.Name.ToLower() == serverEventName.ToLower());
